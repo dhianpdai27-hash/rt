@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem RT 05 - Versi 12.0</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #0f172a; --accent: #2563eb; }
+        body { background-color: #f1f5f9; padding-bottom: 90px; font-family: sans-serif; }
+        .app-card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); background: white; margin-bottom: 15px; padding: 15px; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; border-top: 1px solid #e2e8f0; z-index: 1000; padding: 10px 0; }
+        .nav-item-btn { border: none; background: none; color: #64748b; display: flex; flex-direction: column; align-items: center; font-size: 11px; flex: 1; outline: none; }
+        .nav-item-btn.active { color: var(--accent); font-weight: bold; }
+        .header-mobile { background: var(--primary); color: white; padding: 20px; border-radius: 0 0 20px 20px; margin-bottom: 15px; }
+        .stat-box { background: #f8fafc; border-radius: 10px; padding: 10px; text-align: center; }
+        .stat-val { font-size: 1.1rem; font-weight: 800; display: block; color: var(--primary); }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+
+<div class="header-mobile">
+    <div class="d-flex justify-content-between align-items-center">
+        <div><h5 class="mb-0 fw-bold" id="display-nama-rt">RT 05</h5><small id="current-date" class="opacity-75"></small></div>
+        <div class="text-end"><small class="opacity-75 d-block">Saldo Kas Saat Ini</small><h5 id="dash-saldo-top" class="mb-0 fw-bold text-info">Rp 0</h5></div>
+    </div>
+</div>
+
+<div class="container px-3">
+    <div id="section-dashboard">
+        <div class="app-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold m-0">REKAP WARGA</h6>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-success dropdown-toggle" data-bs-toggle="dropdown">Laporan</button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" onclick="cetakLaporanTabel()">Laporan Bulan Ini (Detail)</a></li>
+                        <li><a class="dropdown-item" onclick="cetakRekapTahunan()">Rekap Tahunan (Jan-Des)</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-4"><div class="stat-box"><small class="text-muted">PRIA</small><span class="stat-val" id="st-l">0</span></div></div>
+                <div class="col-4"><div class="stat-box"><small class="text-muted">WANITA</small><span class="stat-val" id="st-p">0</span></div></div>
+                <div class="col-4"><div class="stat-box"><small class="text-primary">BALITA</small><span class="stat-val text-primary" id="st-bt">0</span></div></div>
+            </div>
+            <div class="mt-3 text-center border-top pt-2"><small class="text-muted">Total: <b id="st-total">0</b> Jiwa | <b id="st-kk">0</b> KK</small></div>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold m-0 text-danger">Tunggakan Iuran</h6>
+            <button class="btn btn-sm btn-outline-danger py-0" style="font-size: 11px;" onclick="tampilkanSemuaTunggakan()">Cek Riwayat Tunggakan</button>
+        </div>
+        <div id="list-tunggakan"></div>
+    </div>
+
+    <div id="section-warga" style="display:none;">
+        <div class="d-flex justify-content-between mb-3"><h6>DATA WARGA</h6><button class="btn btn-primary btn-sm rounded-pill" onclick="tambahWargaBaru()">+ Tambah</button></div>
+        <div id="list-warga-mobile"></div>
+    </div>
+
+    <div id="section-kas" style="display:none;">
+        <h6 class="fw-bold mb-3">ENTRI KAS</h6>
+        <div class="app-card border-top border-primary border-4">
+            <input type="text" id="kas-ket" class="form-control mb-2" placeholder="Keterangan Transaksi">
+            <input type="number" id="kas-nom" class="form-control mb-2" placeholder="Nominal Rp">
+            <div class="row g-2">
+                <div class="col-6"><button onclick="addKas('masuk')" class="btn btn-success w-100 fw-bold">MASUK</button></div>
+                <div class="col-6"><button onclick="addKas('keluar')" class="btn btn-danger w-100 fw-bold">KELUAR</button></div>
+            </div>
+        </div>
+        <div id="list-kas-full"></div>
+    </div>
+
+    <div id="section-settings" style="display:none;">
+        <div class="app-card mb-3">
+            <label class="small fw-bold">NAMA RT</label>
+            <div class="input-group mb-3"><input type="text" id="set-nama-rt" class="form-control"><button class="btn btn-primary" onclick="updateNamaRT()">OK</button></div>
+            <label class="small fw-bold text-primary">SALDO AWAL KAS</label>
+            <div class="input-group mb-3"><span class="input-group-text">Rp</span><input type="number" id="set-saldo-awal" class="form-control"><button class="btn btn-info text-white" onclick="updateSaldoAwal()">Simpan</button></div>
+            
+            <label class="small fw-bold text-success">BULAN AWAL SISTEM (Agar Tunggakan Rapi)</label>
+            <select id="set-bulan-mulai" class="form-select mb-3" onchange="updateBulanMulai()">
+                <option value="0">Januari</option><option value="1">Februari</option><option value="2">Maret</option>
+                <option value="3">April</option><option value="4">Mei</option><option value="5">Juni</option>
+                <option value="6">Juli</option><option value="7">Agustus</option><option value="8">September</option>
+                <option value="9">Oktober</option><option value="10">November</option><option value="11">Desember</option>
+            </select>
+
+            <label class="small fw-bold">JENIS IURAN</label>
+            <div class="input-group mb-2"><input type="text" id="set-iuran-nama" class="form-control" placeholder="Nama"><input type="number" id="set-iuran-rp" class="form-control" placeholder="Rp"><button class="btn btn-success" onclick="addSettingIuran()">+</button></div>
+            <div id="list-setting-iuran" class="list-group list-group-flush border-top"></div>
+        </div>
+        <div class="app-card border-danger">
+            <label class="small fw-bold text-danger">RESTORE DATA</label>
+            <input type="file" id="importFile" class="form-control mb-2" accept=".csv,.xlsx">
+            <button onclick="superRestore()" class="btn btn-danger w-100 fw-bold">MULAI RESTORE</button>
+        </div>
+        <div class="mt-4"><button onclick="exportFullData()" class="btn btn-dark w-100 mb-2">BACKUP EXCEL</button><button onclick="resetData()" class="btn btn-link text-danger w-100 btn-sm">Reset Sistem</button></div>
+    </div>
+</div>
+
+<nav class="bottom-nav">
+    <button class="nav-item-btn active" onclick="nav('dashboard', this)"><span>🏠</span>Home</button>
+    <button class="nav-item-btn" onclick="nav('warga', this)"><span>👥</span>Warga</button>
+    <button class="nav-item-btn" onclick="nav('kas', this)"><span>💰</span>Kas</button>
+    <button class="nav-item-btn" onclick="nav('settings', this)"><span>⚙️</span>Setting</button>
+</nav>
+
+<div class="modal fade" id="modalSemuaTunggakan" tabindex="-1"><div class="modal-dialog modal-fullscreen-sm-down"><div class="modal-content"><div class="modal-header"><h6 class="modal-title fw-bold">RIWAYAT TUNGGAKAN</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body p-0" id="body-semua-tunggakan"></div></div></div></div>
+
+<div class="modal fade" id="modalWarga" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body"><input type="hidden" id="f-id"><input type="text" id="f-kk" class="form-control mb-2" placeholder="No KK"><input type="text" id="f-ayah" class="form-control mb-2" placeholder="Nama Kepala Keluarga"><input type="text" id="f-alamat" class="form-control mb-2" placeholder="Alamat"><div class="row g-2 mb-2"><div class="col-6"><label class="small">Pria</label><input type="number" id="f-jml-l" class="form-control"></div><div class="col-6"><label class="small">Wanita</label><input type="number" id="f-jml-p" class="form-control"></div></div><div class="row g-2 mb-2"><div class="col-6"><label class="small text-danger">Balita L</label><input type="number" id="f-bl" class="form-control"></div><div class="col-6"><label class="small text-danger">Balita P</label><input type="number" id="f-bp" class="form-control"></div></div><input type="text" id="f-note" class="form-control mb-3" placeholder="Catatan"><button onclick="saveWarga()" class="btn btn-primary w-100">SIMPAN</button></div></div></div></div>
+<div class="modal fade" id="modalIuran" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h6 id="iuran-title" class="fw-bold m-0"></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="row row-cols-4 g-2 mb-3" id="bulan-grid"></div><div id="komponen-list-container"></div><div class="mt-4 p-3 bg-primary text-white rounded d-flex justify-content-between"><span>TOTAL:</span><b id="iuran-total-bayar">0</b></div></div></div></div></div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('RT_DB_V120')) || { namaRT: 'RT 05', saldoAwal: 0, warga: [], kas: [], settings: [], bulanMulai: 0 };
+    const blnArr = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    let selId = null, selBln = blnArr[new Date().getMonth()];
+
+    function nav(s, el) { document.querySelectorAll('[id^="section-"]').forEach(x => x.style.display = 'none'); document.getElementById('section-' + s).style.display = 'block'; document.querySelectorAll('.nav-item-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); render(); }
+    function save() { localStorage.setItem('RT_DB_V120', JSON.stringify(db)); render(); }
+
+    function render() {
+        const curBln = blnArr[new Date().getMonth()];
+        let l=0, p=0, bt=0, totalMasukIuran=0;
+        db.warga.forEach(w => { 
+            l += parseInt(w.jmlL||0); p += parseInt(w.jmlP||0); bt += (parseInt(w.bl||0) + parseInt(w.bp||0));
+            Object.keys(w.pembayaran||{}).forEach(b => { (w.pembayaran[b]||[]).forEach(sid => { const s = db.settings.find(x => x.id === sid); if(s) totalMasukIuran += s.nominal; }); });
+        });
+        let tMK=0, tKK=0; db.kas.forEach(k => { if(k.tipe === 'masuk') tMK += k.nom; else tKK += k.nom; });
+        let saldoAkhir = (parseInt(db.saldoAwal)||0) + totalMasukIuran + tMK - tKK;
+
+        document.getElementById('st-l').innerText = l; document.getElementById('st-p').innerText = p; document.getElementById('st-bt').innerText = bt;
+        document.getElementById('st-kk').innerText = db.warga.length; document.getElementById('st-total').innerText = l+p;
+        document.getElementById('dash-saldo-top').innerText = "Rp " + saldoAkhir.toLocaleString();
+        document.getElementById('display-nama-rt').innerText = db.namaRT; document.getElementById('set-nama-rt').value = db.namaRT; 
+        document.getElementById('set-saldo-awal').value = db.saldoAwal; document.getElementById('set-bulan-mulai').value = db.bulanMulai || 0;
+
+        document.getElementById('list-warga-mobile').innerHTML = db.warga.map(w => `<div class="app-card d-flex justify-content-between align-items-center" onclick="editWarga(${w.id})"><div><h6 class="mb-0 fw-bold">${w.nama}</h6><small class="text-muted">${w.alamat||'-'}</small></div><button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); openIuran(${w.id})">Iuran</button></div>`).join('');
+        document.getElementById('list-setting-iuran').innerHTML = db.settings.map(s => `<div class="list-group-item d-flex justify-content-between px-0"><span>${s.nama} (Rp${s.nominal})</span><button class="btn btn-sm text-danger" onclick="removeSettingIuran(${s.id})">Hapus</button></div>`).join('');
+        document.getElementById('list-kas-full').innerHTML = db.kas.slice().reverse().map(k => `<div class="p-2 border-bottom d-flex justify-content-between align-items-center"><div><small class="text-muted">${k.tgl}</small><br><b>${k.ket}</b></div><div class="text-end"><span class="${k.tipe==='masuk'?'text-success':'text-danger'} fw-bold d-block">${k.nom.toLocaleString()}</span><button class="btn btn-sm text-muted p-0" onclick="deleteKas(${k.id})" style="font-size:10px">Hapus</button></div></div>`).join('');
+        
+        // Logika Tunggakan: Hanya mulai dari bulanMulai sampai bulan berjalan
+        const idxSekarang = new Date().getMonth();
+        document.getElementById('list-tunggakan').innerHTML = db.warga.filter(w => (w.pembayaran[curBln]||[]).length === 0).map(w => `<div class="app-card py-2 mb-1 d-flex justify-content-between align-items-center" style="border-left:4px solid red"><span class="small">${w.nama}</span><button class="btn btn-sm btn-danger py-0" onclick="openIuran(${w.id})">Bayar</button></div>`).join('') || '<div class="small text-success">Lunas Semua!</div>';
+    }
+
+    function addKas(t) { 
+        const kI = document.getElementById('kas-ket'), nI = document.getElementById('kas-nom');
+        if(kI.value && nI.value) { 
+            db.kas.push({id:Date.now(), tgl:new Date().toLocaleDateString('id-ID'), ket:kI.value, nom:parseInt(nI.value), tipe:t, bln:blnArr[new Date().getMonth()]}); 
+            save(); kI.value = ''; nI.value = ''; alert('Tersimpan');
+        } 
+    }
+
+    function updateBulanMulai() { db.bulanMulai = parseInt(document.getElementById('set-bulan-mulai').value); save(); alert('Bulan mulai sistem diatur ke ' + blnArr[db.bulanMulai]); }
+
+    function tampilkanSemuaTunggakan() {
+        let html = '<div class="list-group list-group-flush">';
+        const idxSekarang = new Date().getMonth();
+        const start = db.bulanMulai || 0;
+        
+        for(let i = start; i <= idxSekarang; i++) {
+            const bln = blnArr[i];
+            const list = db.warga.filter(w => (w.pembayaran[bln]||[]).length === 0);
+            if(list.length > 0) {
+                html += `<div class="list-group-item bg-light fw-bold small text-primary">${bln.toUpperCase()}</div>`;
+                list.forEach(w => { html += `<div class="list-group-item d-flex justify-content-between small"><span>${w.nama}</span><span class="text-danger">Belum Lunas</span></div>`; });
+            }
+        }
+        document.getElementById('body-semua-tunggakan').innerHTML = html || '<div class="p-3 text-center">Tidak ada tunggakan sejak bulan mulai.</div>';
+        new bootstrap.Modal(document.getElementById('modalSemuaTunggakan')).show();
+    }
+
+    function cetakRekapTahunan() {
+        let lapor = window.open('', '_blank');
+        let baris = '';
+        let totalAllMasuk = 0, totalAllKeluar = 0;
+        
+        blnArr.forEach(b => {
+            let mI = 0; db.warga.forEach(w => { (w.pembayaran[b]||[]).forEach(sid => { const s = db.settings.find(x => x.id === sid); if(s) mI += s.nominal; }); });
+            let mK = 0, kK = 0; db.kas.forEach(k => { if(k.bln === b) { if(k.tipe==='masuk') mK += k.nom; else kK += k.nom; } });
+            let totalM = mI + mK;
+            totalAllMasuk += totalM; totalAllKeluar += kK;
+            baris += `<tr><td>${b}</td><td>Rp ${totalM.toLocaleString()}</td><td>Rp ${kK.toLocaleString()}</td><td>Rp ${(totalM - kK).toLocaleString()}</td></tr>`;
+        });
+
+        lapor.document.write(`<html><head><title>Rekap Tahunan</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head><body class="p-4">
+            <div class="no-print mb-3"><button class="btn btn-primary" onclick="window.print()">Cetak / PDF</button></div>
+            <center><h4>REKAP KEUANGAN TAHUNAN ${db.namaRT}</h4></center>
+            <table class="table table-bordered mt-4">
+                <thead class="table-dark"><tr><th>Bulan</th><th>Total Pemasukan</th><th>Total Pengeluaran</th><th>Selisih</th></tr></thead>
+                <tbody>${baris}</tbody>
+                <tfoot class="table-secondary"><tr><th>TOTAL TAHUNAN</th><th>Rp ${totalAllMasuk.toLocaleString()}</th><th>Rp ${totalAllKeluar.toLocaleString()}</th><th>Rp ${(totalAllMasuk-totalAllKeluar).toLocaleString()}</th></tr></tfoot>
+            </table>
+            <div class="mt-4 p-3 bg-light border"><b>Saldo Akhir Real (Termasuk Saldo Awal):</b> Rp ${((parseInt(db.saldoAwal)||0) + totalAllMasuk - totalAllKeluar).toLocaleString()}</div>
+        </body></html>`);
+    }
+
+    function cetakLaporanTabel() {
+        let laporWindow = window.open('', '_blank');
+        let tMI = 0; db.warga.forEach(w => { Object.keys(w.pembayaran||{}).forEach(b => { (w.pembayaran[b]||[]).forEach(sid => { const s = db.settings.find(x => x.id === sid); if(s) tMI += s.nominal; }); }); });
+        let tMK = 0, tKK = 0; db.kas.forEach(k => { if(k.tipe==='masuk') tMK += k.nom; else tKK += k.nom; });
+        let barisKas = db.kas.map((k, i) => `<tr><td>${i+1}</td><td>${k.tgl}</td><td>${k.ket}</td><td class="text-success">${k.tipe==='masuk'?'Rp '+k.nom.toLocaleString():'-'}</td><td class="text-danger">${k.tipe==='keluar'?'Rp '+k.nom.toLocaleString():'-'}</td></tr>`).join('');
+        laporWindow.document.write(`<html><head><title>Laporan RT</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head><body class="p-4"><div class="no-print mb-4"><button class="btn btn-primary" onclick="window.print()">Download PDF / Cetak Laporan</button></div><center><h3>LAPORAN KEUANGAN ${db.namaRT}</h3><p>Periode: ${new Date().toLocaleDateString('id-ID', {month:'long', year:'numeric'})}</p></center><table class="table table-bordered mt-4"><thead class="table-dark"><tr><th>No</th><th>Tanggal</th><th>Keterangan</th><th>Masuk</th><th>Keluar</th></tr></thead><tbody><tr><td>-</td><td>-</td><td><b>SALDO AWAL</b></td><td>Rp ${parseInt(db.saldoAwal).toLocaleString()}</td><td>-</td></tr><tr><td>-</td><td>-</td><td>TOTAL IURAN WARGA</td><td>Rp ${tMI.toLocaleString()}</td><td>-</td></tr>${barisKas}</tbody><tr class="table-info"><th colspan="3" class="text-end">SALDO AKHIR</th><th colspan="2" class="text-center">Rp ${(parseInt(db.saldoAwal)+tMI+tMK-tKK).toLocaleString()}</th></tr></table></body></html>`);
+    }
+
+    function deleteKas(id) { if(confirm('Hapus?')) { db.kas = db.kas.filter(k => k.id !== id); save(); } }
+    function updateSaldoAwal() { db.saldoAwal = document.getElementById('set-saldo-awal').value; save(); alert('OK'); }
+    function updateNamaRT() { db.namaRT = document.getElementById('set-nama-rt').value; save(); alert('OK'); }
+    function superRestore() { const file = document.getElementById('importFile').files[0]; if(!file) return; const r = new FileReader(); r.onload = function(e) { try { let m = e.target.result.match(/\{[\s\S]*\}/); let hasil = JSON.parse(m[0].replace(/""/g, '"').replace(/\\n/g, " ").replace(/\r?\n|\r/g, "")); if(hasil.warga) { db = hasil; save(); location.reload(); } } catch(err) { alert("Error"); } }; r.readAsText(file); }
+    function saveWarga() { const id = document.getElementById('f-id').value; const w = { id: id?parseInt(id):Date.now(), kk:document.getElementById('f-kk').value, nama:document.getElementById('f-ayah').value, alamat:document.getElementById('f-alamat').value, jmlL:document.getElementById('f-jml-l').value||0, jmlP:document.getElementById('f-jml-p').value||0, bl:document.getElementById('f-bl').value||0, bp:document.getElementById('f-bp').value||0, note:document.getElementById('f-note').value }; if(id) { const i=db.warga.findIndex(x=>x.id==id); db.warga[i]={...db.warga[i], ...w}; } else { w.pembayaran={}; db.warga.push(w); } save(); bootstrap.Modal.getInstance(document.getElementById('modalWarga')).hide(); }
+    function editWarga(id) { const w = db.warga.find(x=>x.id===id); document.getElementById('f-id').value=w.id; document.getElementById('f-kk').value=w.kk; document.getElementById('f-ayah').value=w.nama; document.getElementById('f-alamat').value=w.alamat; document.getElementById('f-jml-l').value=w.jmlL; document.getElementById('f-jml-p').value=w.jmlP; document.getElementById('f-bl').value=w.bl; document.getElementById('f-bp').value=w.bp; document.getElementById('f-note').value=w.note; new bootstrap.Modal(document.getElementById('modalWarga')).show(); }
+    function openIuran(wid) { selId=wid; const w=db.warga.find(x=>x.id===wid); document.getElementById('iuran-title').innerText=w.nama; renderBln(); renderKomp(); new bootstrap.Modal(document.getElementById('modalIuran')).show(); }
+    function renderBln() { document.getElementById('bulan-grid').innerHTML = blnArr.map(b=>`<div class="col"><div onclick="selB('${b}')" style="font-size:10px; padding:5px; border-radius:5px; text-align:center; cursor:pointer; background:${selBln===b?'#2563eb':'#f1f5f9'}; color:${selBln===b?'#fff':'#000'}">${b}</div></div>`).join(''); }
+    function selB(b) { selBln=b; renderBln(); renderKomp(); }
+    function renderKomp() { const w=db.warga.find(x=>x.id===selId); if(!w.pembayaran[selBln]) w.pembayaran[selBln]=[]; let t=0; document.getElementById('komponen-list-container').innerHTML = db.settings.map(s=>{ const ok=w.pembayaran[selBln].includes(s.id); if(ok) t+=s.nominal; return `<div class="d-flex justify-content-between p-2 border-bottom"><span>${s.nama}</span><input type="checkbox" ${ok?'checked':''} onchange="togB(${s.id})"></div>`; }).join(''); document.getElementById('iuran-total-bayar').innerText="Rp "+t.toLocaleString(); }
+    function togB(sid) { const w=db.warga.find(x=>x.id===selId); const i=w.pembayaran[selBln].indexOf(sid); if(i>-1) w.pembayaran[selBln].splice(i,1); else w.pembayaran[selBln].push(sid); save(); renderKomp(); }
+    function addSettingIuran() { const n=document.getElementById('set-iuran-nama').value, r=document.getElementById('set-iuran-rp').value; if(n&&r){ db.settings.push({id:Date.now(), nama:n, nominal:parseInt(r)}); save(); } }
+    function removeSettingIuran(id) { db.settings=db.settings.filter(s=>s.id!==id); save(); }
+    function exportFullData() { const ws = XLSX.utils.json_to_sheet([{ backup: JSON.stringify(db) }]); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "DATA"); XLSX.writeFile(wb, `BACKUP_RT05.xlsx`); }
+    function resetData() { if(confirm('Hapus?')) { localStorage.clear(); location.reload(); } }
+    function tambahWargaBaru() { document.querySelectorAll('#modalWarga input').forEach(i=>i.value=''); new bootstrap.Modal(document.getElementById('modalWarga')).show(); }
+    document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long'});
+    render();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
